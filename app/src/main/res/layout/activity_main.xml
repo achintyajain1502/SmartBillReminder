@@ -24,6 +24,15 @@
         android:textSize="14sp"
         android:textColor="#6B7280" />
 
+    <EditText
+        android:id="@+id/etSearchBill"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:hint="Search bills..."
+        android:inputType="text"
+        android:padding="12dp" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
+import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -59,6 +60,39 @@ class MainActivity : AppCompatActivity() {
             LinearLayoutManager(this)
 
         billAdapter = BillAdapter(emptyList())
+
+        val etSearchBill =
+            findViewById<EditText>(R.id.etSearchBill)
+
+        etSearchBill.addTextChangedListener(
+            object : android.text.TextWatcher {
+
+                override fun beforeTextChanged(
+                    s: CharSequence?,
+                    start: Int,
+                    count: Int,
+                    after: Int
+                ) {
+                }
+
+                override fun onTextChanged(
+                    s: CharSequence?,
+                    start: Int,
+                    before: Int,
+                    count: Int
+                ) {
+
+                    billAdapter.filterBills(
+                        s.toString().trim()
+                    )
+                }
+
+                override fun afterTextChanged(
+                    s: android.text.Editable?
+                ) {
+                }
+            }
+        )
 
         recyclerBills.adapter = billAdapter
 

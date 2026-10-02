@@ -23,7 +23,10 @@ class BillAdapter(
     private var bills: List<Bill>
 ) : RecyclerView.Adapter<BillAdapter.BillViewHolder>() {
 
-    class BillViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    private var allBills: List<Bill> = bills
+
+    class BillViewHolder(itemView: View) :
+        RecyclerView.ViewHolder(itemView) {
 
         val tvBillName: TextView =
             itemView.findViewById(R.id.tvBillName)
@@ -89,7 +92,34 @@ class BillAdapter(
     }
 
     fun updateBills(newBills: List<Bill>) {
+
+        allBills = newBills
         bills = newBills
+
+        notifyDataSetChanged()
+    }
+
+    fun filterBills(query: String) {
+
+        bills = if (query.isEmpty()) {
+
+            allBills
+
+        } else {
+
+            allBills.filter { bill ->
+
+                bill.name.contains(
+                    query,
+                    ignoreCase = true
+                ) ||
+                        bill.category.contains(
+                            query,
+                            ignoreCase = true
+                        )
+            }
+        }
+
         notifyDataSetChanged()
     }
 }
