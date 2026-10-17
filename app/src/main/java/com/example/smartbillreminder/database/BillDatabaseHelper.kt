@@ -11,11 +11,11 @@ class BillDatabaseHelper(context: Context) :
 
     companion object {
         private const val DATABASE_NAME = "SmartBill.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 2
 
         private const val TABLE_BILLS = "bills"
 
-        private const val COLUMN_ID = "id"
+        private const val COLUMN_ACCOUNT_NUMBER = "account_number"
         private const val COLUMN_NAME = "name"
         private const val COLUMN_AMOUNT = "amount"
         private const val COLUMN_CATEGORY = "category"
@@ -25,10 +25,9 @@ class BillDatabaseHelper(context: Context) :
     }
 
     override fun onCreate(db: SQLiteDatabase) {
-
         val createTable = """
             CREATE TABLE $TABLE_BILLS (
-                $COLUMN_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COLUMN_ACCOUNT_NUMBER TEXT PRIMARY KEY NOT NULL,
                 $COLUMN_NAME TEXT NOT NULL,
                 $COLUMN_AMOUNT REAL NOT NULL,
                 $COLUMN_CATEGORY TEXT NOT NULL,
@@ -46,11 +45,14 @@ class BillDatabaseHelper(context: Context) :
         oldVersion: Int,
         newVersion: Int
     ) {
+        // Recreates the table when upgrading from the old schema.
+        // WARNING: This deletes previously saved bills.
         db.execSQL("DROP TABLE IF EXISTS $TABLE_BILLS")
         onCreate(db)
     }
 
     fun insertBill(
+        accountNumber: String,
         name: String,
         amount: Double,
         category: String,
@@ -58,10 +60,10 @@ class BillDatabaseHelper(context: Context) :
         recurrence: String,
         notes: String
     ): Boolean {
-
         val db = writableDatabase
 
         val values = ContentValues().apply {
+            put(COLUMN_ACCOUNT_NUMBER, accountNumber.trim())
             put(COLUMN_NAME, name)
             put(COLUMN_AMOUNT, amount)
             put(COLUMN_CATEGORY, category)
@@ -71,15 +73,14 @@ class BillDatabaseHelper(context: Context) :
         }
 
         val result = db.insert(TABLE_BILLS, null, values)
-
         db.close()
 
         return result != -1L
     }
 
     fun getAllBills(): List<com.example.smartbillreminder.adapter.Bill> {
-
-        val bills = mutableListOf<com.example.smartbillreminder.adapter.Bill>()
+        val bills =
+            mutableListOf<com.example.smartbillreminder.adapter.Bill>()
 
         val db = readableDatabase
 
@@ -90,16 +91,14 @@ class BillDatabaseHelper(context: Context) :
             null,
             null,
             null,
-            "$COLUMN_ID DESC"
+            "$COLUMN_NAME ASC"
         )
 
         if (cursor.moveToFirst()) {
-
             do {
-
                 val bill = com.example.smartbillreminder.adapter.Bill(
-                    id = cursor.getInt(
-                        cursor.getColumnIndexOrThrow(COLUMN_ID)
+                    accountNumber = cursor.getString(
+                        cursor.getColumnIndexOrThrow(COLUMN_ACCOUNT_NUMBER)
                     ),
                     name = cursor.getString(
                         cursor.getColumnIndexOrThrow(COLUMN_NAME)
@@ -122,7 +121,6 @@ class BillDatabaseHelper(context: Context) :
                 )
 
                 bills.add(bill)
-
             } while (cursor.moveToNext())
         }
 
@@ -131,8 +129,9 @@ class BillDatabaseHelper(context: Context) :
 
         return bills
     }
+
     fun updateBill(
-        id: Int,
+        accountNumber: String,
         name: String,
         amount: Double,
         category: String,
@@ -140,7 +139,6 @@ class BillDatabaseHelper(context: Context) :
         recurrence: String,
         notes: String
     ): Boolean {
-
         val db = writableDatabase
 
         val values = ContentValues().apply {
@@ -155,8 +153,8 @@ class BillDatabaseHelper(context: Context) :
         val result = db.update(
             TABLE_BILLS,
             values,
-            "$COLUMN_ID = ?",
-            arrayOf(id.toString())
+            "$COLUMN_ACCOUNT_NUMBER = ?",
+            arrayOf(accountNumber)
         )
 
         db.close()
@@ -164,14 +162,13 @@ class BillDatabaseHelper(context: Context) :
         return result > 0
     }
 
-    fun deleteBill(id: Int): Boolean {
-
+    fun deleteBill(accountNumber: String): Boolean {
         val db = writableDatabase
 
         val result = db.delete(
             TABLE_BILLS,
-            "$COLUMN_ID = ?",
-            arrayOf(id.toString())
+            "$COLUMN_ACCOUNT_NUMBER = ?",
+            arrayOf(accountNumber)
         )
 
         db.close()
@@ -180,7 +177,6 @@ class BillDatabaseHelper(context: Context) :
     }
 
     fun getMonthlyExpense(): Double {
-
         val db = readableDatabase
 
         val cursor = db.rawQuery(
@@ -190,7 +186,7 @@ class BillDatabaseHelper(context: Context) :
 
         var total = 0.0
 
-        if (cursor.moveToFirst()) {
+        if (cursor.moveToFirst() && !cursor.isNull(0)) {
             total = cursor.getDouble(0)
         }
 
@@ -201,65 +197,33 @@ class BillDatabaseHelper(context: Context) :
     }
 
     fun getDueSoonCount(): Int {
-
         val bills = getAllBills()
 
-        val today = Calendar.getInstance()
+        val todayDate = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
 
-        val sevenDaysLater = Calendar.getInstance()
+        val sevenDaysLater = todayDate.clone() as Calendar
         sevenDaysLater.add(Calendar.DAY_OF_YEAR, 7)
 
         var count = 0
 
         for (bill in bills) {
-
             try {
-
                 val parts = bill.date.split("/")
 
                 if (parts.size == 3) {
-
                     val day = parts[0].toInt()
                     val month = parts[1].toInt() - 1
                     val year = parts[2].toInt()
 
-                    val dueDate = Calendar.getInstance()
-
-                    dueDate.set(
-                        year,
-                        month,
-                        day,
-                        0,
-                        0,
-                        0
-                    )
-
-                    dueDate.set(
-                        Calendar.MILLISECOND,
-                        0
-                    )
-
-                    val todayDate = Calendar.getInstance()
-
-                    todayDate.set(
-                        Calendar.HOUR_OF_DAY,
-                        0
-                    )
-
-                    todayDate.set(
-                        Calendar.MINUTE,
-                        0
-                    )
-
-                    todayDate.set(
-                        Calendar.SECOND,
-                        0
-                    )
-
-                    todayDate.set(
-                        Calendar.MILLISECOND,
-                        0
-                    )
+                    val dueDate = Calendar.getInstance().apply {
+                        set(year, month, day, 0, 0, 0)
+                        set(Calendar.MILLISECOND, 0)
+                    }
 
                     if (
                         !dueDate.before(todayDate) &&
@@ -268,13 +232,11 @@ class BillDatabaseHelper(context: Context) :
                         count++
                     }
                 }
-
             } catch (e: Exception) {
-                // Ignore invalid dates
+                // Ignore invalid dates.
             }
         }
 
         return count
     }
-
 }

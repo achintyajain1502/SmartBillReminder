@@ -13,6 +13,7 @@ import java.util.Calendar
 
 class AddBillActivity : AppCompatActivity() {
 
+    private lateinit var etAccountNumber: EditText
     private lateinit var etBillName: EditText
     private lateinit var etAmount: EditText
     private lateinit var etNotes: EditText
@@ -29,11 +30,11 @@ class AddBillActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setContentView(R.layout.activity_add_bill)
 
         databaseHelper = BillDatabaseHelper(this)
 
+        etAccountNumber = findViewById(R.id.etAccountNumber)
         etBillName = findViewById(R.id.etBillName)
         etAmount = findViewById(R.id.etAmount)
         etNotes = findViewById(R.id.etNotes)
@@ -56,7 +57,6 @@ class AddBillActivity : AppCompatActivity() {
     }
 
     private fun setupSpinners() {
-
         val categories = arrayOf(
             "Utilities",
             "Entertainment",
@@ -67,59 +67,53 @@ class AddBillActivity : AppCompatActivity() {
             "Other"
         )
 
-        val categoryAdapter = ArrayAdapter(
+        spinnerCategory.adapter = ArrayAdapter(
             this,
             android.R.layout.simple_spinner_dropdown_item,
             categories
         )
 
-        spinnerCategory.adapter = categoryAdapter
-
-        val recurrence = arrayOf(
+        val recurrenceOptions = arrayOf(
             "One Time",
             "Monthly",
             "Yearly"
         )
 
-        val recurrenceAdapter = ArrayAdapter(
+        spinnerRecurrence.adapter = ArrayAdapter(
             this,
             android.R.layout.simple_spinner_dropdown_item,
-            recurrence
+            recurrenceOptions
         )
-
-        spinnerRecurrence.adapter = recurrenceAdapter
     }
 
     private fun showDatePicker() {
-
         val calendar = Calendar.getInstance()
-
-        val year = calendar.get(Calendar.YEAR)
-        val month = calendar.get(Calendar.MONTH)
-        val day = calendar.get(Calendar.DAY_OF_MONTH)
 
         val datePicker = DatePickerDialog(
             this,
-            { _, selectedYear, selectedMonth, selectedDay ->
-
-                selectedDate =
-                    "$selectedDay/${selectedMonth + 1}/$selectedYear"
-
+            { _, year, month, day ->
+                selectedDate = "$day/${month + 1}/$year"
                 btnDate.text = selectedDate
             },
-            year,
-            month,
-            day
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
         )
 
         datePicker.show()
     }
 
     private fun saveBill() {
-
+        val accountNumber = etAccountNumber.text.toString().trim()
         val billName = etBillName.text.toString().trim()
         val amountText = etAmount.text.toString().trim()
         val notes = etNotes.text.toString().trim()
+
+        if (accountNumber.isEmpty()) {
+            etAccountNumber.error = "Enter account number"
+            etAccountNumber.requestFocus()
+            return
+        }
 
         if (billName.isEmpty()) {
             etBillName.error = "Enter bill name"
@@ -127,30 +121,20 @@ class AddBillActivity : AppCompatActivity() {
             return
         }
 
-        if (amountText.isEmpty()) {
-            etAmount.error = "Enter amount"
+        val amount = amountText.toDoubleOrNull()
+
+        if (amount == null || amount <= 0) {
+            etAmount.error = "Enter a valid amount"
             etAmount.requestFocus()
             return
         }
 
         if (selectedDate.isEmpty()) {
-
             Toast.makeText(
                 this,
                 "Please select a due date",
                 Toast.LENGTH_SHORT
             ).show()
-
-            return
-        }
-
-        val amount = amountText.toDoubleOrNull()
-
-        if (amount == null || amount <= 0) {
-
-            etAmount.error = "Enter a valid amount"
-            etAmount.requestFocus()
-
             return
         }
 
@@ -158,6 +142,7 @@ class AddBillActivity : AppCompatActivity() {
         val recurrence = spinnerRecurrence.selectedItem.toString()
 
         val success = databaseHelper.insertBill(
+            accountNumber = accountNumber,
             name = billName,
             amount = amount,
             category = category,
@@ -167,6 +152,14 @@ class AddBillActivity : AppCompatActivity() {
         )
 
         if (success) {
+            // Schedule the reminder after saving the bill.
+            BillAlarmScheduler.scheduleReminder(
+                context = this,
+                accountNumber = accountNumber,
+                billName = billName,
+                amount = amount,
+                dueDate = selectedDate
+            )
 
             Toast.makeText(
                 this,
@@ -174,21 +167,12 @@ class AddBillActivity : AppCompatActivity() {
                 Toast.LENGTH_SHORT
             ).show()
 
-            BillAlarmScheduler.scheduleReminder(
-                context = this,
-                billId = databaseHelper.getAllBills().first().id,
-                billName = billName,
-                amount = amount,
-                dueDate = selectedDate
-            )
             finish()
-
         } else {
-
             Toast.makeText(
                 this,
-                "Failed to save bill",
-                Toast.LENGTH_SHORT
+                "Failed to save bill. Check whether this account number already exists.",
+                Toast.LENGTH_LONG
             ).show()
         }
     }

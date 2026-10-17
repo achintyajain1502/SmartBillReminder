@@ -13,16 +13,16 @@ class BillDetailActivity : AppCompatActivity() {
 
     private lateinit var databaseHelper: BillDatabaseHelper
 
-    private var billId = 0
+    private var accountNumber = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setContentView(R.layout.activity_bill_detail)
 
         databaseHelper = BillDatabaseHelper(this)
 
-        billId = intent.getIntExtra("bill_id", 0)
+        accountNumber =
+            intent.getStringExtra("bill_account_number") ?: ""
 
         val tvName = findViewById<TextView>(R.id.tvDetailName)
         val tvAmount = findViewById<TextView>(R.id.tvDetailAmount)
@@ -39,7 +39,8 @@ class BillDetailActivity : AppCompatActivity() {
         val billAmount = intent.getDoubleExtra("bill_amount", 0.0)
         val billCategory = intent.getStringExtra("bill_category") ?: ""
         val billDate = intent.getStringExtra("bill_date") ?: ""
-        val billRecurrence = intent.getStringExtra("bill_recurrence") ?: ""
+        val billRecurrence =
+            intent.getStringExtra("bill_recurrence") ?: ""
         val billNotes = intent.getStringExtra("bill_notes") ?: ""
 
         tvName.text = billName
@@ -48,10 +49,10 @@ class BillDetailActivity : AppCompatActivity() {
         tvDate.text = "Due Date: $billDate"
         tvRecurrence.text = "Recurrence: $billRecurrence"
 
-        if (billNotes.isEmpty()) {
-            tvNotes.text = "Notes: No notes added"
+        tvNotes.text = if (billNotes.isEmpty()) {
+            "Notes: No notes added"
         } else {
-            tvNotes.text = "Notes: $billNotes"
+            "Notes: $billNotes"
         }
 
         btnBack.setOnClickListener {
@@ -59,21 +60,23 @@ class BillDetailActivity : AppCompatActivity() {
         }
 
         btnEdit.setOnClickListener {
-
-            val intent = Intent(
+            val editIntent = Intent(
                 this,
                 EditBillActivity::class.java
             )
 
-            intent.putExtra("bill_id", billId)
-            intent.putExtra("bill_name", billName)
-            intent.putExtra("bill_amount", billAmount)
-            intent.putExtra("bill_category", billCategory)
-            intent.putExtra("bill_date", billDate)
-            intent.putExtra("bill_recurrence", billRecurrence)
-            intent.putExtra("bill_notes", billNotes)
+            editIntent.putExtra(
+                "bill_account_number",
+                accountNumber
+            )
+            editIntent.putExtra("bill_name", billName)
+            editIntent.putExtra("bill_amount", billAmount)
+            editIntent.putExtra("bill_category", billCategory)
+            editIntent.putExtra("bill_date", billDate)
+            editIntent.putExtra("bill_recurrence", billRecurrence)
+            editIntent.putExtra("bill_notes", billNotes)
 
-            startActivity(intent)
+            startActivity(editIntent)
         }
 
         btnDelete.setOnClickListener {
@@ -82,17 +85,20 @@ class BillDetailActivity : AppCompatActivity() {
     }
 
     private fun showDeleteConfirmation() {
-
         AlertDialog.Builder(this)
             .setTitle("Delete Bill")
             .setMessage("Are you sure you want to delete this bill?")
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Delete") { _, _ ->
 
-                val success = databaseHelper.deleteBill(billId)
+                BillAlarmScheduler.cancelReminder(
+                    context = this,
+                    accountNumber = accountNumber
+                )
+
+                val success = databaseHelper.deleteBill(accountNumber)
 
                 if (success) {
-
                     Toast.makeText(
                         this,
                         "Bill deleted",
@@ -100,9 +106,7 @@ class BillDetailActivity : AppCompatActivity() {
                     ).show()
 
                     finish()
-
                 } else {
-
                     Toast.makeText(
                         this,
                         "Failed to delete bill",

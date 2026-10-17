@@ -13,6 +13,7 @@ import java.util.Calendar
 
 class EditBillActivity : AppCompatActivity() {
 
+    private lateinit var etAccountNumber: EditText
     private lateinit var etBillName: EditText
     private lateinit var etAmount: EditText
     private lateinit var etNotes: EditText
@@ -25,18 +26,19 @@ class EditBillActivity : AppCompatActivity() {
 
     private lateinit var databaseHelper: BillDatabaseHelper
 
-    private var billId = 0
+    private var originalAccountNumber = ""
     private var selectedDate = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setContentView(R.layout.activity_edit_bill)
 
         databaseHelper = BillDatabaseHelper(this)
 
-        billId = intent.getIntExtra("bill_id", 0)
+        originalAccountNumber =
+            intent.getStringExtra("bill_account_number") ?: ""
 
+        etAccountNumber = findViewById(R.id.etEditAccountNumber)
         etBillName = findViewById(R.id.etEditBillName)
         etAmount = findViewById(R.id.etEditAmount)
         etNotes = findViewById(R.id.etEditNotes)
@@ -60,7 +62,6 @@ class EditBillActivity : AppCompatActivity() {
     }
 
     private fun setupSpinners() {
-
         val categories = arrayOf(
             "Utilities",
             "Entertainment",
@@ -71,13 +72,11 @@ class EditBillActivity : AppCompatActivity() {
             "Other"
         )
 
-        val categoryAdapter = ArrayAdapter(
+        spinnerCategory.adapter = ArrayAdapter(
             this,
             android.R.layout.simple_spinner_dropdown_item,
             categories
         )
-
-        spinnerCategory.adapter = categoryAdapter
 
         val recurrence = arrayOf(
             "One Time",
@@ -85,75 +84,70 @@ class EditBillActivity : AppCompatActivity() {
             "Yearly"
         )
 
-        val recurrenceAdapter = ArrayAdapter(
+        spinnerRecurrence.adapter = ArrayAdapter(
             this,
             android.R.layout.simple_spinner_dropdown_item,
             recurrence
         )
-
-        spinnerRecurrence.adapter = recurrenceAdapter
     }
 
     private fun loadBillData() {
+        etAccountNumber.setText(originalAccountNumber)
+        etAccountNumber.isEnabled = false
 
-        val name = intent.getStringExtra("bill_name") ?: ""
+        etBillName.setText(
+            intent.getStringExtra("bill_name") ?: ""
+        )
+
         val amount = intent.getDoubleExtra("bill_amount", 0.0)
-        val category = intent.getStringExtra("bill_category") ?: ""
-        val date = intent.getStringExtra("bill_date") ?: ""
-        val recurrence = intent.getStringExtra("bill_recurrence") ?: ""
-        val notes = intent.getStringExtra("bill_notes") ?: ""
-
-        etBillName.setText(name)
         etAmount.setText(amount.toString())
-        etNotes.setText(notes)
 
-        selectedDate = date
-        btnDate.text = date
+        etNotes.setText(
+            intent.getStringExtra("bill_notes") ?: ""
+        )
 
-        val categoryPosition =
-            (spinnerCategory.adapter as ArrayAdapter<String>)
-                .getPosition(category)
+        val category = intent.getStringExtra("bill_category") ?: ""
+        val recurrence = intent.getStringExtra("bill_recurrence") ?: ""
+
+        selectedDate = intent.getStringExtra("bill_date") ?: ""
+        btnDate.text = selectedDate
+
+        // Find the saved category without using ArrayAdapter<*>
+        val categoryPosition = (0 until spinnerCategory.count)
+            .firstOrNull {
+                spinnerCategory.getItemAtPosition(it).toString() == category
+            } ?: -1
 
         if (categoryPosition >= 0) {
             spinnerCategory.setSelection(categoryPosition)
         }
 
-        val recurrencePosition =
-            (spinnerRecurrence.adapter as ArrayAdapter<String>)
-                .getPosition(recurrence)
+        // Find the saved recurrence without using ArrayAdapter<*>
+        val recurrencePosition = (0 until spinnerRecurrence.count)
+            .firstOrNull {
+                spinnerRecurrence.getItemAtPosition(it).toString() == recurrence
+            } ?: -1
 
         if (recurrencePosition >= 0) {
             spinnerRecurrence.setSelection(recurrencePosition)
         }
     }
-
     private fun showDatePicker() {
-
         val calendar = Calendar.getInstance()
 
-        val year = calendar.get(Calendar.YEAR)
-        val month = calendar.get(Calendar.MONTH)
-        val day = calendar.get(Calendar.DAY_OF_MONTH)
-
-        val datePicker = DatePickerDialog(
+        DatePickerDialog(
             this,
-            { _, selectedYear, selectedMonth, selectedDay ->
-
-                selectedDate =
-                    "$selectedDay/${selectedMonth + 1}/$selectedYear"
-
+            { _, year, month, day ->
+                selectedDate = "$day/${month + 1}/$year"
                 btnDate.text = selectedDate
             },
-            year,
-            month,
-            day
-        )
-
-        datePicker.show()
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        ).show()
     }
 
     private fun updateBill() {
-
         val name = etBillName.text.toString().trim()
         val amountText = etAmount.text.toString().trim()
         val notes = etNotes.text.toString().trim()
@@ -164,8 +158,10 @@ class EditBillActivity : AppCompatActivity() {
             return
         }
 
-        if (amountText.isEmpty()) {
-            etAmount.error = "Enter amount"
+        val amount = amountText.toDoubleOrNull()
+
+        if (amount == null || amount <= 0) {
+            etAmount.error = "Enter a valid amount"
             etAmount.requestFocus()
             return
         }
@@ -179,29 +175,26 @@ class EditBillActivity : AppCompatActivity() {
             return
         }
 
-        val amount = amountText.toDoubleOrNull()
-
-        if (amount == null || amount <= 0) {
-            etAmount.error = "Enter a valid amount"
-            etAmount.requestFocus()
+        if (originalAccountNumber.isBlank()) {
+            Toast.makeText(
+                this,
+                "Account number is missing",
+                Toast.LENGTH_SHORT
+            ).show()
             return
         }
 
-        val category = spinnerCategory.selectedItem.toString()
-        val recurrence = spinnerRecurrence.selectedItem.toString()
-
         val success = databaseHelper.updateBill(
-            id = billId,
+            accountNumber = originalAccountNumber,
             name = name,
             amount = amount,
-            category = category,
+            category = spinnerCategory.selectedItem.toString(),
             date = selectedDate,
-            recurrence = recurrence,
+            recurrence = spinnerRecurrence.selectedItem.toString(),
             notes = notes
         )
 
         if (success) {
-
             Toast.makeText(
                 this,
                 "Bill updated successfully!",
@@ -210,21 +203,19 @@ class EditBillActivity : AppCompatActivity() {
 
             BillAlarmScheduler.cancelReminder(
                 context = this,
-                billId = billId
+                accountNumber = originalAccountNumber
             )
 
             BillAlarmScheduler.scheduleReminder(
                 context = this,
-                billId = billId,
+                accountNumber = originalAccountNumber,
                 billName = name,
                 amount = amount,
                 dueDate = selectedDate
             )
 
             finish()
-
         } else {
-
             Toast.makeText(
                 this,
                 "Failed to update bill",
