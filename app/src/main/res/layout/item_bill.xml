@@ -41,6 +41,15 @@
         </LinearLayout>
 
         <TextView
+            android:id="@+id/tvBillAccountNumber"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Account Number: ACC101"
+            android:textColor="#666666"
+            android:textSize="13sp" />
+
+        <TextView
             android:id="@+id/tvBillCategory"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

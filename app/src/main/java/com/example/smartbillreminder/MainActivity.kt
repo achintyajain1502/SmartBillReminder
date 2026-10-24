@@ -82,7 +82,7 @@ class MainActivity : AppCompatActivity() {
                     count: Int
                 ) {
 
-                    billAdapter.filterBills(
+                    billAdapter.filter(
                         s.toString().trim()
                     )
                 }

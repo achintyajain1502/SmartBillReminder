@@ -26,6 +26,8 @@ class BillDetailActivity : AppCompatActivity() {
 
         val tvName = findViewById<TextView>(R.id.tvDetailName)
         val tvAmount = findViewById<TextView>(R.id.tvDetailAmount)
+        val tvAccount = findViewById<TextView>(R.id.tvAccountNumber)
+        tvAccount.text = "Account Number: $accountNumber"
         val tvCategory = findViewById<TextView>(R.id.tvDetailCategory)
         val tvDate = findViewById<TextView>(R.id.tvDetailDate)
         val tvRecurrence = findViewById<TextView>(R.id.tvDetailRecurrence)

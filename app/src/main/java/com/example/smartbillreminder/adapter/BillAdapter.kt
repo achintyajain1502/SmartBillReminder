@@ -1,3 +1,4 @@
+
 package com.example.smartbillreminder.adapter
 
 import android.content.Intent
@@ -20,10 +21,12 @@ data class Bill(
 )
 
 class BillAdapter(
-    private var bills: List<Bill>
+    initialBills: List<Bill>
 ) : RecyclerView.Adapter<BillAdapter.BillViewHolder>() {
 
-    private var allBills: List<Bill> = bills
+    // Keep the complete list separate from the filtered list.
+    private var allBills: List<Bill> = initialBills.toList()
+    private var bills: List<Bill> = initialBills.toList()
 
     class BillViewHolder(itemView: View) :
         RecyclerView.ViewHolder(itemView) {
@@ -33,6 +36,9 @@ class BillAdapter(
 
         val tvBillAmount: TextView =
             itemView.findViewById(R.id.tvBillAmount)
+
+        val tvBillAccountNumber: TextView =
+            itemView.findViewById(R.id.tvBillAccountNumber)
 
         val tvBillCategory: TextView =
             itemView.findViewById(R.id.tvBillCategory)
@@ -62,6 +68,7 @@ class BillAdapter(
 
         holder.tvBillName.text = bill.name
         holder.tvBillAmount.text = "₹${bill.amount}"
+        holder.tvBillAccountNumber.text ="Account Number: ${bill.accountNumber}"
         holder.tvBillCategory.text = bill.category
         holder.tvBillDate.text = "Due: ${bill.date}"
         holder.tvBillRecurrence.text = bill.recurrence
@@ -87,19 +94,30 @@ class BillAdapter(
     override fun getItemCount(): Int = bills.size
 
     fun updateBills(newBills: List<Bill>) {
-        allBills = newBills
-        bills = newBills
+        allBills = newBills.toList()
+        bills = allBills
         notifyDataSetChanged()
     }
 
-    fun filterBills(query: String) {
-        bills = if (query.isBlank()) {
+    fun filter(query: String) {
+        val searchText = query.trim()
+
+        bills = if (searchText.isEmpty()) {
             allBills
         } else {
             allBills.filter { bill ->
-                bill.name.contains(query, ignoreCase = true) ||
-                        bill.category.contains(query, ignoreCase = true) ||
-                        bill.accountNumber.contains(query, ignoreCase = true)
+                bill.accountNumber.contains(
+                    searchText,
+                    ignoreCase = true
+                ) ||
+                        bill.name.contains(
+                            searchText,
+                            ignoreCase = true
+                        ) ||
+                        bill.category.contains(
+                            searchText,
+                            ignoreCase = true
+                        )
             }
         }
 

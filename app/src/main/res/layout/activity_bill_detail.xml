@@ -35,6 +35,15 @@
         android:textColor="#2563EB" />
 
     <TextView
+        android:id="@+id/tvAccountNumber"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Account Number:"
+        android:textSize="16sp"
+        android:textColor="#666666" />
+
+    <TextView
         android:id="@+id/tvDetailCategory"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
